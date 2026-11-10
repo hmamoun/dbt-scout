@@ -1,0 +1,64 @@
+version: '3'
+
+vars:
+  PYTHON: '{{default "python" .PYTHON}}'
+
+tasks:
+  compare:test:
+    desc: Run the standalone comparison workbench regression tests offline
+    cmds:
+      - 'uv run --project streamlit/compare_agents --group test python -m pytest -c streamlit/compare_agents/pyproject.toml streamlit/compare_agents/tests -q {{.CLI_ARGS}}'
+
+  compare:check:
+    desc: Validate the comparison deployment artifact map without Snowflake
+    cmds:
+      - '{{.PYTHON}} "{{.ROOT_DIR}}/scripts/scr_scout_stl.py" --project-dir "{{default .ROOT_DIR .PROJECT_DIR}}" --config "{{default "streamlit/compare_agents/snowflake.yml" .CONFIG}}" --dry-run'
+
+  compare:deploy:
+    desc: Deploy to the explicitly configured Snowflake target (remote replacement)
+    requires:
+      vars: [PROJECT_DIR, CONFIG]
+    cmds:
+      - '{{.PYTHON}} "{{.ROOT_DIR}}/scripts/scr_scout_stl.py" --project-dir "{{.PROJECT_DIR}}" --config "{{.CONFIG}}"'
+
+  compare:preview:
+    desc: Run the comparison workbench locally using explicitly configured developer SSO
+    cmds:
+      - 'uv run --project streamlit/compare_agents python -m streamlit run streamlit/compare_agents/app/streamlit_app.py --server.port {{default "8521" .PORT}} --server.headless true'
+
+  compare:setup:
+    desc: Resolve and install only the standalone workbench dependencies
+    cmds:
+      - uv sync --project streamlit/compare_agents --group test
+
+  compare:dependencies:
+    desc: Generate the runtime-only dependency manifest beside the app entrypoint
+    cmds:
+      - uv export --project streamlit/compare_agents --no-dev --no-hashes --no-emit-project --output-file streamlit/compare_agents/app/requirements.txt
+
+  compare:coverage:
+    desc: Run standalone comparison tests with branch coverage
+    dir: streamlit/compare_agents
+    cmds:
+      - uv run --group test coverage run --rcfile pyproject.toml -m pytest tests -q
+      - uv run --group test coverage report --rcfile pyproject.toml
+
+  compare:demo:
+    desc: Run a synthetic browser-review harness with no Snowflake or billable calls
+    cmds:
+      - 'uv run --project streamlit/compare_agents python -m streamlit run streamlit/compare_agents/app/preview_synthetic.py --server.port {{default "8521" .PORT}} --server.headless true --browser.gatherUsageStats false'
+
+  materializations:parse:
+    desc: Parse the opt-in deployment model without querying Snowflake
+    requires:
+      vars: [PROFILE]
+    cmds:
+      - >-
+        dbt ls --profile '{{.PROFILE}}' --select package:dbt_scout,scout_streamlit
+        --resource-type model --vars 'scout_streamlit: {}' --quiet
+        --warn-error-options '{"error":["NoNodesForSelectionCriteria"]}'
+
+  materializations:test:
+    desc: Run the existing sample materialization tests offline
+    cmds:
+      - '{{.PYTHON}} -m unittest discover -s tests -p test_materializations.py -v'

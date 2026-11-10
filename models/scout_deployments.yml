@@ -1,0 +1,22 @@
+# Documentation: ../docs/materializations.md
+version: 2
+models:
+  - name: scout_agent
+    description: "{{ doc('scout_deployments') }}"
+    config:
+      meta:
+        documentation: docs/materializations.md#agent-materialization
+  - name: scout_streamlit
+    description: "{{ doc('scout_deployments') }}"
+    config:
+      meta:
+        documentation: docs/materializations.md#streamlit-materialization
+macros:
+  - name: scout_agent_ddl
+    description: "Renders grant-preserving Cortex Agent DDL. See docs/materializations.md#agent-materialization."
+  - name: materialization_mat_scout_agt_snowflake
+    description: "Deploys a Cortex Agent, not a dbt relation. See docs/materializations.md#agent-materialization."
+  - name: scout_streamlit_ddl
+    description: "Renders Streamlit creation from staged source files. See docs/materializations.md#streamlit-materialization."
+  - name: materialization_mat_scout_stl_snowflake
+    description: "Uploads source files and publishes a live app. See docs/materializations.md#streamlit-materialization."

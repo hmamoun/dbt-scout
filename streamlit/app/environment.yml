@@ -1,0 +1,9 @@
+# Documentation: dbt_scout/docs/materializations.md#sample-streamlit
+name: scout_streamlit
+channels:
+  - snowflake
+dependencies:
+  - python=3.11
+  - streamlit>=1.35
+  - pandas
+  - snowflake-snowpark-python

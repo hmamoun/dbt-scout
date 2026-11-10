@@ -1,0 +1,25 @@
+[project]
+name = "dbt-scout-agent-comparison"
+version = "0.1.0"
+description = "Single-page, session-local Snowflake agent comparison workbench"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "streamlit>=1.57,<2",
+    "snowflake-snowpark-python>=1.35,<2",
+    "pandas>=2.2,<3",
+    "sqlglot>=29,<30",
+]
+
+[dependency-groups]
+test = ["pytest>=8,<9", "coverage>=7,<8", "PyYAML>=6,<7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["app"]
+
+[tool.coverage.run]
+branch = true
+source = ["app/common"]
+
+[tool.coverage.report]
+fail_under = 80

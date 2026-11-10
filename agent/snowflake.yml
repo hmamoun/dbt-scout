@@ -1,0 +1,17 @@
+# Documentation: ../docs/materializations.md#sample-agent
+name: SCOUT_AGENT
+comment: "Cortex Agent deployed by dbt_scout."
+profile:
+  display_name: "Scout Agent"
+specification:
+  models:
+    orchestration: auto
+  orchestration:
+    budget:
+      seconds: 30
+      tokens: 16000
+  instructions:
+    sample_questions:
+      - question: "What can you help me with?"
+  tools: []
+  tool_resources: {}

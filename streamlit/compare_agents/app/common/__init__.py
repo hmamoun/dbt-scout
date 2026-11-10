@@ -1,0 +1,1 @@
+"""Standalone comparison workbench. See docs/compare_agents.md in dbt_scout."""
