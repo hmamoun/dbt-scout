@@ -1,0 +1,39 @@
+---
+version: 2
+models:
+  - name: scout_orphan_objects
+    description: >
+      Tables and views that exist in the schemas this project builds into but no longer match any model, seed or snapshot in the dbt graph (for example after a rename or a move to another schema). One row per orphan. Only schemas that at least one node resolves to are scanned. Semantic views are not in information_schema.tables, so orphaned semantic views are not detected. Review cleanup_script before running it; nothing is dropped automatically.
+
+    columns:
+      - name: full_path
+        description: Fully qualified database.schema.object name of the orphan.
+        data_type: varchar
+        tests:
+          - not_null
+          - unique
+      - name: database_name
+        description: Database holding the orphan.
+        data_type: varchar
+      - name: schema_name
+        description: Schema holding the orphan.
+        data_type: varchar
+      - name: object_name
+        description: Name of the orphan table or view.
+        data_type: varchar
+      - name: object_type
+        description: >
+          Lower-case object type (table, view, materialized view, dynamic table, external table), usable directly in a DROP statement.
+
+        data_type: varchar
+      - name: created_at
+        description: When the orphan was created in Snowflake.
+        data_type: timestamp_ltz
+      - name: last_altered_at
+        description: When the orphan was last altered in Snowflake.
+        data_type: timestamp_ltz
+      - name: cleanup_script
+        description: >
+          Ready-to-run DROP statement for the orphan, with quoted identifiers. Unsupported object types return a comment instead of a statement.
+
+        data_type: varchar

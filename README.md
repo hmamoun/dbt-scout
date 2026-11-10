@@ -29,6 +29,22 @@ packages:
 
 Run `dbt deps` to install the package.
 
+### Sample Agent and Streamlit Deployments
+
+See the [application materialization runbook](docs/materializations.md) for
+working examples of `mat_scout_agt` and `mat_scout_stl`, the opt-in `scout_agent`
+and `scout_streamlit` models, required Snowflake privileges, and test commands.
+The runbook includes instructions for consuming this package locally from
+`dbt_test`. Neither sample deploys during an ordinary build without its settings.
+
+### Standalone Agent Comparison
+
+The [one-page Agent Comparison workbench](docs/compare_agents.md) is distributed
+under `streamlit/compare_agents`. It uses the existing Streamlit materialization
+and does not require the original evaluation application or evaluation tables.
+The guide covers consumer configuration, owner-rights access, dependencies,
+least-privilege permission templates, Task validation, and deployment limitations.
+
 ### 2. Basic Usage
 To run the primary scout macro and identify orphan objects in your warehouse, execute the following command in your terminal:
 

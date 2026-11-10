@@ -1,0 +1,6 @@
+# Documentation: ../docs/materializations.md#streamlit-materialization
+name: SCOUT_STREAMLIT
+title: Scout Deployment Check
+comment: "Sample application deployed by dbt_scout."
+source_dir: app
+main_file: streamlit_app.py

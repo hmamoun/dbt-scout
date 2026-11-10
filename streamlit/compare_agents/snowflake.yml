@@ -1,0 +1,22 @@
+# Deployment guide: ../../docs/compare_agents.md
+name: SCOUT_COMPARE_AGENTS
+title: Compare Agents
+comment: "Session-local agent comparison. Documentation: dbt_scout/docs/compare_agents.md"
+source_dir: app
+main_file: streamlit_app.py
+runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+# Set compute_pool, query_warehouse, database, schema and
+# external_access_integrations to administrator-approved objects as needed.
+# No credentials, account names, or organization defaults belong here.
+artifacts:
+  - streamlit_app.py
+  - requirements.txt
+  - common/__init__.py
+  - common/common.py
+  - common/preferences.py
+  - common/comparison.py
+  - common/comparison_clients.py
+  - common/comparison_sql.py
+  - common/comparison_ui.py
+  - common/agent_selection.py
+  - common/prompts.py

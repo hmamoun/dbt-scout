@@ -1,1 +1,0 @@
-select 'Hello from dbt_scout!' as greeting
