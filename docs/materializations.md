@@ -1,5 +1,318 @@
 # Snowflake Application Materializations
 
+The `dbt-scout` package provides two non-tabular Snowflake materializations through
+opt-in dbt models. Its dbt project name and package namespace are `dbt_scout`
+(dbt project names use lowercase letters and underscores); a Git repository may
+use the hyphenated name `dbt-scout`. Both launchers use dbt Core's Python API and
+the consuming project's dbt profile; no passwords or connection credentials
+belong in the sample configuration files.
+
+| Model | Materialization | Launcher | Sample configuration |
+| --- | --- | --- | --- |
+| `scout_agent` | `mat_scout_agt` | `scripts/scr_scout_agt.py` | `agent/snowflake.yml` |
+| `scout_streamlit` | `mat_scout_stl` | `scripts/scr_scout_stl.py` | `streamlit/snowflake.yml` |
+
+## Prerequisites
+
+- Run Python from the environment containing dbt Core, dbt-snowflake, and PyYAML.
+- Use a Snowflake target with an existing database, schema, and warehouse.
+- Grant the deployment role USAGE on that database, schema, and warehouse.
+- For agents, grant CREATE AGENT on the target schema and OWNERSHIP to replace an
+  existing agent. Cortex must be available in the account, with the appropriate
+  Cortex role and model access for the role that runs the agent.
+- For Streamlit, grant CREATE STREAMLIT and CREATE STAGE on the target schema.
+  Reusing a source stage requires READ and WRITE; replacing an app requires
+  OWNERSHIP on that app. Publishing the live version also requires OWNERSHIP.
+- Accept Snowflake's package terms if prompted when using Streamlit dependencies.
+
+The launchers require dbt Core, not the standalone Fusion executable. The sample
+agent uses no data tools, so it needs no source tables, semantic views, or search
+services. Using it still invokes a model and can incur Cortex charges.
+
+## Install and Use as a Package
+
+Add the package to the consuming project's `packages.yml`. Use either a Git
+dependency or a local path, not both:
+
+```yaml
+packages:
+  - git: https://github.com/your-org/dbt-scout.git
+    revision: v1.0.0
+```
+
+For local development with a sibling checkout, use:
+
+```yaml
+packages:
+  - local: ../dbt_scout
+```
+
+From the consuming project directory, install or refresh dependencies:
+
+```powershell
+dbt deps
+```
+
+The package installs under `dbt_packages/dbt_scout` because that directory comes
+from the dbt project name, not the Git repository slug. The consumer must have
+dbt Core, `dbt-snowflake`, and PyYAML installed in the Python environment used to
+run the launchers, plus a configured Snowflake profile. The launchers build in
+the consumer project and use its profile; `--profile`, `--target`, and
+`--profiles-dir` can select a different consumer connection.
+
+Check that dbt discovers both package models without connecting to Snowflake:
+
+```powershell
+dbt ls --select package:dbt_scout,scout_agent --resource-type model --vars '{"scout_agent":{}}'
+dbt ls --select package:dbt_scout,scout_streamlit --resource-type model --vars '{"scout_streamlit":{}}'
+```
+
+The supplied deployment models are disabled unless their corresponding
+variable is provided. Use the launchers to load and validate the sample config
+and files, pass the required variable, and build only the selected deployment
+model. From the consumer project root, validate without connecting to Snowflake:
+
+```powershell
+python .\dbt_packages\dbt_scout\scripts\scr_scout_agt.py --project-dir . --config .\dbt_packages\dbt_scout\agent\snowflake.yml --dry-run
+python .\dbt_packages\dbt_scout\scripts\scr_scout_stl.py --project-dir . --config .\dbt_packages\dbt_scout\streamlit\snowflake.yml --dry-run
+```
+
+Deploy each sample separately to the consumer's active target:
+
+```powershell
+python .\dbt_packages\dbt_scout\scripts\scr_scout_agt.py --project-dir . --config .\dbt_packages\dbt_scout\agent\snowflake.yml --profile dbt_test
+python .\dbt_packages\dbt_scout\scripts\scr_scout_stl.py --project-dir . --config .\dbt_packages\dbt_scout\streamlit\snowflake.yml --profile dbt_test
+```
+
+Replace `dbt_test` with a profile configured in the consumer's `profiles.yml`.
+Both scripts accept `--project-dir`, `--profiles-dir`, `--profile`, `--target`,
+and `--select`. Their default selectors are
+`package:dbt_scout,scout_agent` and `package:dbt_scout,scout_streamlit`.
+Override `--select` to target a consumer-owned model that uses the materialization.
+
+To deploy your own Agent or Streamlit app, pass your own `--config` path. Agent
+instruction files in `assets/` are resolved beside the Agent YAML; Streamlit's
+`source_dir` is resolved beside its YAML. Those files must exist on the machine
+running the launcher because Streamlit source files are uploaded from local
+paths. Run `dbt deps` again after changing a local package checkout so the
+installed copy is refreshed.
+
+The package's `mat_scout_agt` and `mat_scout_stl` materializations are available
+to consumer models through the `materialized` config. The provided wrappers
+already set that config. These materializations create Snowflake Agents and
+Streamlit apps, not dbt relations; use the launchers so their input variables
+and local files are prepared correctly. A plain `dbt build` without those
+variables leaves the supplied examples disabled and does not deploy them.
+
+## Agent Materialization
+
+The launcher reads `snowflake.yml` and these two UTF-8 files next to it:
+
+```text
+agent/
+  snowflake.yml
+  assets/
+    instructions_orchestration.md
+    instructions_response.md
+```
+
+It inserts both Markdown texts into `specification.instructions`, validates the
+configuration, and passes it through the `scout_agent` dbt variable.
+The materialization runs `CREATE OR REPLACE AGENT ... COPY GRANTS FROM
+SPECIFICATION`. Existing explicit grants are preserved except OWNERSHIP, which
+belongs to the creating role. Replacing an agent replaces its specification;
+maintain any production instructions and tools in the configuration, not only
+in Snowsight.
+
+| Setting | Meaning |
+| --- | --- |
+| `name` | Agent identifier; defaults to the dbt model identifier. Sample: `SCOUT_AGENT`. |
+| `database`, `schema` | Optional exact destinations; otherwise the dbt model's resolved destination. |
+| `comment` | Optional comment; a package documentation reference is always appended. |
+| `profile` | Optional Snowflake agent display metadata; not a dbt connection profile. |
+| `specification` | Snowflake agent settings: models, orchestration, tools, resources, and optional sample questions. |
+
+Names are quoted and therefore case-sensitive. If overriding the database or
+schema, use existing names exactly as stored in Snowflake. The specification is
+limited to 100,000 bytes. Keep orchestration and response instructions in the
+Markdown files, not duplicated in YAML. Tool resources must refer to declared
+tool names. Snowflake validates the complete provider-specific specification.
+
+### Sample Agent
+
+The supplied agent is intentionally tool-free. After deploying, find
+`SCOUT_AGENT` in Snowsight's Cortex Agents area and ask:
+
+> What can you help me with? Do you have access to warehouse data?
+
+It should explain its limitations rather than invent query results. This checks
+agent creation and prompt loading, not analytical accuracy. Add real Cortex
+Analyst or Cortex Search tools and their existing resources when moving beyond
+this smoke test. Never place secrets in instructions, comments, or YAML.
+
+## Streamlit Materialization
+
+For the independently deployable, single-page comparison workbench, see
+[Standalone Agent Comparison](compare_agents.md). It uses the same model,
+launcher, and materialization with a container runtime and explicit artifact map.
+The original sample below remains a warehouse-runtime deployment.
+
+The Streamlit launcher reads `streamlit/snowflake.yml` and collects top-level
+Python files plus `environment.yml` and `README.md` from `source_dir`. It does
+not recursively upload directories, secrets, or arbitrary local files.
+
+| Setting | Meaning |
+| --- | --- |
+| `name` | App identifier; defaults to the dbt model identifier. Sample: `SCOUT_STREAMLIT`. |
+| `database`, `schema` | Optional existing destinations; default to the model's resolved destination. |
+| `query_warehouse` | Existing warehouse; defaults to the dbt target's warehouse. |
+| `title`, `comment` | App metadata; the comment always includes a documentation reference. |
+| `source_dir` | Local source directory, relative to `snowflake.yml`; default: `app`. |
+| `main_file` | Top-level Python filename; default: `streamlit_app.py`. |
+| `artifacts` | Optional explicit relative file list preserving subdirectories; includes the entrypoint and exactly one runtime dependency manifest. |
+| `runtime_name` | Optional Snowflake runtime; defaults to the warehouse runtime when omitted. |
+| `compute_pool` | Existing approved compute pool for a container runtime. |
+| `external_access_integrations` | Optional list of approved integrations for package/network access. |
+
+The materialization:
+
+1. Creates `<app_name>__SOURCE` as an internal stage if it does not exist.
+2. Uploads the selected files using PUT without compression into a directory
+   named for the dbt invocation. Each build has an isolated source directory.
+3. Runs `CREATE OR REPLACE STREAMLIT ... FROM '<stage path>'` using the warehouse
+   runtime and the packaged `environment.yml` dependencies.
+4. Executes `ALTER STREAMLIT ... ADD LIVE VERSION FROM LAST` so the app is live.
+
+The stage and app comments refer back to this runbook. Source files are copied
+when the app is created: changing a local file does not update the deployed app
+until you run the launcher again.
+
+**Redeployment replaces the app and may discard grants and edits made in
+Snowsight.** Unlike agent creation, CREATE STREAMLIT has no COPY GRANTS clause.
+Reapply consumer grants after rebuilding. Old invocation directories remain in
+the source stage for inspection; remove them according to your retention policy.
+The materialization does not automatically drop source stages or old files.
+
+### Sample Streamlit
+
+Open `SCOUT_STREAMLIT` in Snowsight after deploying. The Runtime tab reports
+the active database, schema, role, and warehouse using a read-only query.
+The Sample Data tab contains a clearly labeled synthetic inventory with a filter
+and chart. No real account inventory or table contents are queried. The sample
+does not call the agent, so each deployment can be tested independently.
+
+For a local, credential-free UI preview from the package directory:
+
+```powershell
+$env:SCOUT_LOCAL_PREVIEW = '1'
+python -m streamlit run .\streamlit\app\streamlit_app.py
+```
+
+Local preview uses fixed context values and does not verify Snowflake deployment.
+For a real Snowflake run, leave `SCOUT_LOCAL_PREVIEW` unset. Streamlit executes
+with the app owner's rights by default; review that security model before adding
+queries against real data or sharing the app with other roles.
+
+## Verification
+
+From the package checkout, run offline checks with dbt Core, Streamlit, and pandas
+installed in the same Python environment:
+
+```powershell
+python -m unittest discover -s tests -p test_materializations.py -v
+```
+
+The tests load both sample configurations, check missing-entrypoint validation,
+render escaped agent SQL, exercise the Agent creation and Streamlit stage/upload/
+publish sequences with a mock adapter, and run Streamlit's local preview and
+filter interaction with AppTest. They do not prove Snowflake permissions,
+dependency availability, or provider SQL acceptance; those require the two
+deployment commands above in your account.
+
+After deploying, run these statements in a Snowflake worksheet in the target
+database and schema:
+
+```sql
+show agents like 'SCOUT_AGENT';
+show streamlits like 'SCOUT_STREAMLIT';
+show stages like 'SCOUT_STREAMLIT__SOURCE';
+```
+
+You can also inspect `target/run_results.json` for the dbt build status.
+Neither materialization creates a relation: do not use `ref()`, `dbt show`,
+ordinary column tests, or table/view cleanup macros on these deployment models.
+Use hooks for additional grants, not for querying the models as tables.
+
+## Troubleshooting
+
+- **No enabled nodes:** Run the appropriate Python launcher; it supplies the
+  variables needed to enable the sample model. Check `--select` for typos.
+- **File not found:** Config paths are relative to `--project-dir` (the current
+  directory by default); source and instruction paths are relative to their YAML.
+- **Source changes missing:** Run `dbt deps` in the consuming project to refresh
+  its installed local package, then rerun the launcher.
+- **PUT or stage errors:** Use dbt Core with the Snowflake adapter on a machine
+  where the files exist; verify stage READ/WRITE privileges. A remote runner
+  needs its own checkout of the source files.
+- **App does not start:** Confirm warehouse USAGE, accepted package terms, and
+  package availability in your Snowflake account. Check the Streamlit app logs.
+- **Object already exists or insufficient privileges:** Confirm OWNERSHIP before
+  replacement and use a dedicated development schema for these samples.# Snowflake Application Materializations
+
+The `dbt-scout` package provides two non-tabular Snowflake materializations through
+opt-in dbt models. Its dbt project name and package namespace are `dbt_scout`
+(dbt project names use lowercase letters and underscores); a Git repository may
+use the hyphenated name `dbt-scout`. Both launchers use dbt Core's Python API and
+the consuming project's dbt profile; no passwords or connection credentials
+belong in the sample configuration files.
+
+## Install and Use as a Package
+Add the package to the consuming project's `packages.yml`. Use either a Git
+dependency or a local path (not both):
+
+```yaml
+For local development with a sibling checkout, use:
+
+```yaml
+Then, from the consuming project directory, install or refresh dependencies:
+
+```powershell
+The package installs under `dbt_packages/dbt_scout` because that path comes from
+the dbt project name, not the Git repository slug. The consumer must have dbt
+Core, `dbt-snowflake`, and PyYAML installed in the Python environment used to run
+Check that dbt discovers both package models without connecting to Snowflake:
+
+```powershell
+The supplied deployment models are disabled unless their corresponding
+variable is provided. Use the launchers to load and validate the sample config
+and files, pass the required variable, and build only the selected deployment
+model. From the consumer project root, validate without connecting to Snowflake:
+
+```powershell
+Deploy each sample separately to the consumer's active target:
+
+```powershell
+Replace `dbt_test` with a profile configured in the consumer's `profiles.yml`.
+Both scripts accept `--project-dir`, `--profiles-dir`, `--profile`, `--target`,
+and `--select`. Their default selectors are
+`package:dbt_scout,scout_agent` and `package:dbt_scout,scout_streamlit`.
+`--select` can target a consumer-owned model that uses the materialization.
+
+To deploy your own Agent or Streamlit app, pass your own `--config` path. Agent
+instruction files in `assets/` are resolved beside the Agent YAML; Streamlit's
+`source_dir` is resolved beside its YAML. Those files must exist on the machine
+running the launcher because Streamlit source files are uploaded from local
+paths. Run `dbt deps` again after changing a local package checkout so the
+installed copy is refreshed.
+
+The package's `mat_scout_agt` and `mat_scout_stl` materializations are available
+to consumer models through the `materialized` config. The provided wrappers
+already set that config. These materializations create Snowflake Agents and
+Streamlit apps, not dbt relations; use the launchers so their input variables
+and local files are prepared correctly. A plain `dbt build` without those
+variables leaves the supplied examples disabled and does not deploy them.
+# Snowflake Application Materializations
+
 dbt_scout deploys two non-tabular Snowflake objects through opt-in dbt models.
 Both launchers use dbt Core's Python API and the consuming project's dbt profile;
 no passwords or connection credentials belong in the sample configuration files.
