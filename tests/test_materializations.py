@@ -65,7 +65,38 @@ class SqlTests(unittest.TestCase):
         self.assertIn("Scout''s agent", sql)
         self.assertIn("docs/materializations.md#agent-materialization", sql)
         self.assertIn("Don''t invent data.", sql)
-        self.assertIn("C:\\\\\\\\data", sql)
+        self.assertIn("C:" + "\\" * 4 + "data", sql)
+
+    def test_agent_materialization_builds_agent_without_relation(self):
+        agent = load_agent(ROOT / "agent" / "snowflake.yml")
+        statements = {}
+
+        def statement(name, auto_begin=False, caller=None):
+            statements[name] = caller()
+            return ""
+
+        def compiler_error(message):
+            raise ValueError(message)
+
+        package = SimpleNamespace()
+        result = Mock(return_value="", unsafe_callable=False, alters_data=False)
+        context = {
+            "var": lambda name, default=None: agent,
+            "this": SimpleNamespace(database="DB", schema="SCHEMA", identifier="SCOUT_AGENT"),
+            "tojson": json.dumps,
+            "adapter": SimpleNamespace(quote=lambda value: '"' + value.replace('"', '""') + '"', commit=Mock(unsafe_callable=False, alters_data=False)),
+            "dbt_scout": package, "statement": statement,
+            "run_hooks": Mock(return_value="", unsafe_callable=False, alters_data=False), "pre_hooks": [], "post_hooks": [],
+            "return": result,
+            "log": Mock(return_value="", unsafe_callable=False, alters_data=False), "exceptions": SimpleNamespace(raise_compiler_error=compiler_error),
+        }
+        module = get_template((ROOT / "macros" / "mat_scout_agt.sql").read_text(), context).module
+        package.scout_agent_ddl = module.dbt_macro__scout_agent_ddl
+        materialization = next(getattr(module, name) for name in dir(module) if "materialization_mat_scout_agt" in name)
+        materialization()
+        self.assertIn('create or replace agent "DB"."SCHEMA"."SCOUT_AGENT" copy grants', statements["main"])
+        self.assertIn("instructions", statements["main"])
+        result.assert_called_once_with({"relations": []})
 
     def test_streamlit_uploads_and_publishes_live_version(self):
         app = load_streamlit(ROOT / "streamlit" / "snowflake.yml")
