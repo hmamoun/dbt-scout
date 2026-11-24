@@ -1,0 +1,13 @@
+
+target/
+dbt_packages/
+logs/
+__pycache__/
+.venv/
+.pytest_cache/
+.coverage
+
+# Local Snowflake profile with company-specific values
+integration_tests/.local/
+integration_tests/.user.yml
+integration_tests/package-lock.yml

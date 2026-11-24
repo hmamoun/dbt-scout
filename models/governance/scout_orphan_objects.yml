@@ -1,0 +1,45 @@
+---
+version: 2
+models:
+  - name: scout_orphan_objects
+    description: >
+      Lists tables and views in schemas used by this dbt project that are not in its current model, seed, or snapshot graph. Includes the number of queries that accessed each object in the past 90 days and a suggested DROP statement. The statement is not run automatically. Semantic views are not included.
+
+    columns:
+      - name: full_path
+        description: Fully qualified database.schema.object name of the orphan.
+        data_type: varchar
+        tests:
+          - not_null
+          - unique
+      - name: database_name
+        description: Database holding the orphan.
+        data_type: varchar
+      - name: schema_name
+        description: Schema holding the orphan.
+        data_type: varchar
+      - name: object_name
+        description: Name of the orphan table or view.
+        data_type: varchar
+      - name: object_type
+        description: >
+          Object type: table, view, materialized view, dynamic table, or external table.
+
+        data_type: varchar
+      - name: created_at
+        description: When the orphan was created in Snowflake.
+        data_type: timestamp_ltz
+      - name: last_altered_at
+        description: When the orphan was last altered in Snowflake.
+        data_type: timestamp_ltz
+      - name: cleanup_script
+        description: >
+          Suggested DROP statement with quoted identifiers. It is returned as text and is never run by this model.
+
+        data_type: varchar
+      - name: query_count_90d
+        description: Number of queries that accessed this object in the past 90 days.
+        data_type: number
+      - name: last_accessed_at
+        description: Most recent query access recorded in the past 90 days.
+        data_type: timestamp_ltz
