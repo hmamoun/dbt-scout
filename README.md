@@ -32,7 +32,7 @@ views are not detected.
    ```yaml
    packages:
      - git: https://github.com/hmamoun/dbt-scout.git
-       revision: v0.1.2
+       revision: v0.1.3
    ```
 
    Or from the dbt Package Hub:
@@ -40,7 +40,7 @@ views are not detected.
    ```yaml
    packages:
      - package: hmamoun/dbt_scout
-       version: 0.1.2
+       version: 0.1.3
    ```
 
    > **Note:** the package is being reviewed for the dbt Package Hub. Until it is
