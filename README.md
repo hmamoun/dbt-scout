@@ -27,13 +27,24 @@ views are not detected.
 
 ## Quick start
 
-1. Add the package to `packages.yml`:
+1. Add the package to `packages.yml`. Install it from GitHub:
 
    ```yaml
    packages:
-     - git: https://github.com/hmamoun/dbt_scout.git
+     - git: https://github.com/hmamoun/dbt-scout.git
        revision: v0.1.2
    ```
+
+   Or from the dbt Package Hub:
+
+   ```yaml
+   packages:
+     - package: hmamoun/dbt_scout
+       version: 0.1.2
+   ```
+
+   > **Note:** the package is being reviewed for the dbt Package Hub. Until it is
+   > approved, use the GitHub install above.
 
 2. Install it and build the report:
 
